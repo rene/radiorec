@@ -1,0 +1,55 @@
+#!/bin/sh
+
+##
+# Just do some sanity check before start Radiorec
+#
+cd src
+
+PYTHON=`which python`
+
+if [ -z "$PYTHON" ]; then
+	echo
+	echo "Python was not found."
+	echo "Radiorec will not execute. Please, install Python first."
+	echo
+fi
+
+$PYTHON << EOF
+import sys
+
+try:
+	import pygtk
+	pygtk.require("2.0")
+	import gtk
+except:
+	print 'Pygtk (>=2.0) package was not found.'
+	print 'Radiorec will not execute. Please, install Pygtk (>=2.0) first.'
+	sys.exit(1)
+
+try:
+	import pygst
+	pygst.require("0.10")
+	import gst
+except:
+	dia = gtk.Dialog("Error", None,
+						gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+						(gtk.STOCK_OK, gtk.RESPONSE_OK))
+	wicon = gtk.image_new_from_stock(gtk.STOCK_DIALOG_ERROR, gtk.ICON_SIZE_DIALOG)
+	txt   = gtk.Label("Pygst (>=0.10) package was not found.\nRadiorec will not execute. Please, install Pygst (>=0.10) first.")
+	txt.set_line_wrap(True)
+	hbox  = gtk.HBox()
+	hbox.pack_start(wicon)
+	hbox.pack_start(txt)
+	dia.vbox.pack_start(hbox)
+	picon = dia.render_icon(gtk.STOCK_DIALOG_ERROR, gtk.ICON_SIZE_MENU)
+	dia.set_icon(picon)
+	dia.show_all()
+	dia.run()
+	dia.destroy()
+	sys.exit(1)
+
+sys.exit(0)
+EOF
+
+[ $? -eq 0 ] && ./radiorec.py
+

@@ -1,0 +1,38 @@
+** RADIOREC 0.1 Beta - REAME file **
+
+Radiorec it's a simple program to play and record audio streams
+
+
+WEBSITE: http://radio-rec.sourceforget.net
+
+
+DEPENDENCIES (you should have these packages installed on your system):
+
+    * Pygtk (>=2.0)
+    * Pygst (>=0.10)
+
+
+HOW TO RUN:
+
+    Just execute radiorec at source root tree:
+
+    ./radiorec
+
+    NOTE: Not all stream servers send information about their music.
+          In this case, titles, time duration, genres, etc, will not
+          be avaliable. But you can keep record streams, Radiorec will
+          use "untitled" as title and "unknown" as the others.
+          Beaware just if you record two consecutive streams that not
+          send information, because output file name could be the same,
+          overwriting record files. 
+
+
+ACKNOWLEDGES: To Tango Icon Library team, because I use their icons to
+              produce Radiorec icon (I'm not a drawer, sorry).
+
+
+BUG REPORT:
+
+    This is a beta version, please report any kind of bug or issue
+    to rene@renesp.com.br
+
