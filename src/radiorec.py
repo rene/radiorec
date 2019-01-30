@@ -1004,7 +1004,7 @@ class MainWin:
 			self.statusbar.push(self.statusbar.get_context_id("playback"), "Ready.")
 
 			if self.progbar.get_parent() is not None:
-				self.statusbar.remove(self.progbar)
+				gtk.Container.remove(self.statusbar, self.progbar)
 
 			self.lbl_track.set_text("No stream.")
 			self.lbl_time.set_text("00:00")
@@ -1019,7 +1019,7 @@ class MainWin:
 	def cb_cg_buffer(self, pb, percent, userdata=None):
 
 		if percent >= 100:
-			self.statusbar.remove(self.progbar)
+			gtk.Container.remove(self.statusbar, self.progbar)
 		else:
 			if self.progbar.get_parent() == None:
 				self.statusbar.pack_end(self.progbar, False, True, 0)
