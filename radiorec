@@ -18,30 +18,32 @@ $PYTHON << EOF
 import sys
 
 try:
-	import pygtk
-	pygtk.require("2.0")
-	import gtk
+	import gi
+	gi.require_version("Gtk", "3.0")
+	gi.require_version("Gdk", "3.0")
+	gi.require_version("GdkPixbuf", "2.0")
+	from gi.repository import GObject, GdkPixbuf, Gdk, Gtk
 except:
-	print 'Pygtk (>=2.0) package was not found.'
-	print 'Radiorec will not execute. Please, install Pygtk (>=2.0) first.'
+	print 'PyGTK3 package was not found.'
+	print 'Radiorec will not execute. Please, install PyGTK3 first.'
 	sys.exit(1)
 
 try:
-	import pygst
-	pygst.require("0.10")
-	import gst
+	import gi
+	gi.require_version('Gst', '1.0')
+	from gi.repository import GObject, Gst
 except:
-	dia = gtk.Dialog("Error", None,
-						gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-						(gtk.STOCK_OK, gtk.RESPONSE_OK))
-	wicon = gtk.image_new_from_stock(gtk.STOCK_DIALOG_ERROR, gtk.ICON_SIZE_DIALOG)
-	txt   = gtk.Label("Pygst (>=0.10) package was not found.\nRadiorec will not execute. Please, install Pygst (>=0.10) first.")
+	dia = Gtk.Dialog("Error", None,
+						Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+						(Gtk.STOCK_OK, Gtk.ResponseType.OK))
+	wicon = Gtk.Image.new_from_stock(Gtk.STOCK_DIALOG_ERROR, Gtk.IconSize.DIALOG)
+	txt   = Gtk.Label("PyGst (>=1.0) package was not found.\nRadiorec will not execute. Please, install PyGst (>=1.0) first.")
 	txt.set_line_wrap(True)
-	hbox  = gtk.HBox()
-	hbox.pack_start(wicon)
-	hbox.pack_start(txt)
-	dia.vbox.pack_start(hbox)
-	picon = dia.render_icon(gtk.STOCK_DIALOG_ERROR, gtk.ICON_SIZE_MENU)
+	hbox  = Gtk.HBox()
+	hbox.pack_start(wicon, True, True, 0)
+	hbox.pack_start(txt, True, True, 0)
+	dia.vbox.pack_start(hbox, True, True, 0)
+	picon = dia.render_icon(Gtk.STOCK_DIALOG_ERROR, Gtk.IconSize.MENU)
 	dia.set_icon(picon)
 	dia.show_all()
 	dia.run()

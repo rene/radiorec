@@ -19,15 +19,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import pygtk
-pygtk.require("2.0")
-import gtk, gobject
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import GObject, GdkPixbuf, Gdk, Gtk
 import os, shutil
 from radiorec import rrdb
 from radiorec.classifier import classifier
-from radiorec.playback import playback
 from radiorec.timeout import Timeout
 from radiorec.userconf import Userconf
+from radiorec.playback import playback
 
 
 ##
@@ -96,9 +98,9 @@ class MainWin:
 		self.list    = None
 		
 		## UI
-		self.builder1 = gtk.Builder()
-		self.builder2 = gtk.Builder()
-		self.builder3 = gtk.Builder()
+		self.builder1 = Gtk.Builder()
+		self.builder2 = Gtk.Builder()
+		self.builder3 = Gtk.Builder()
 		builder = self.builder1
 		builder.add_from_file("ui/radiorec-ui.glade")
 		builder.connect_signals({"on_mainwin_destroy"    : self.cb_mnu_file_quit,
@@ -118,7 +120,7 @@ class MainWin:
 		x, y, width, height, wstate = self.userconf.get_window_properties()
 
 		## FIXME: Implement save state of window position and size
-		self.window.set_position(gtk.WIN_POS_CENTER)
+		self.window.set_position(Gtk.WindowPosition.CENTER)
 
 		if wstate == Userconf.WINDOW_MAXIMIZED:
 			self.window.maximize()
@@ -153,21 +155,21 @@ class MainWin:
 			'Tango', 'Samba', 'Folklore', 'Ballad', 'Power Ballad', 'Rhythmic Soul', 'Freestyle',
 			'Duet', 'Punk Rock', 'Drum Solo', 'A capella', 'Euro-House', 'Dance Hall']
 		
-		self.gstore  = gtk.ListStore(gobject.TYPE_STRING)
+		self.gstore  = Gtk.ListStore(GObject.TYPE_STRING)
 		for g in self.genres_list:
 			self.gstore.append([g])
 
 		## ListTree for TreeView
-		self.lstore  = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING, gtk.gdk.Pixbuf, gobject.TYPE_INT)
+		self.lstore  = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_STRING, GdkPixbuf.Pixbuf, GObject.TYPE_INT)
 		self.listree = builder.get_object("listtree")
 		self.listree.set_model(self.lstore)
 		self.listree.connect("button_press_event", self.cb_listree_bpress)
-		cell1   = gtk.CellRendererText()
-		cell2   = gtk.CellRendererText()
-		cell3   = gtk.CellRendererPixbuf()
-		ltcol1  = gtk.TreeViewColumn("Name", cell1, text=0)
-		ltcol2  = gtk.TreeViewColumn("Genre", cell2, text=1)
-		ltcol3  = gtk.TreeViewColumn("Classification", cell3, pixbuf=2)
+		cell1   = Gtk.CellRendererText()
+		cell2   = Gtk.CellRendererText()
+		cell3   = Gtk.CellRendererPixbuf()
+		ltcol1  = Gtk.TreeViewColumn("Name", cell1, text=0)
+		ltcol2  = Gtk.TreeViewColumn("Genre", cell2, text=1)
+		ltcol3  = Gtk.TreeViewColumn("Classification", cell3, pixbuf=2)
 		ltcol1.connect("clicked", self.cb_column_click, [0])
 		ltcol2.connect("clicked", self.cb_column_click, [1])
 		ltcol3.connect("clicked", self.cb_column_click, [2])
@@ -184,7 +186,7 @@ class MainWin:
 
 		ltcol3.set_fixed_width(25)
 		ltcol3.set_max_width(25)
-		ltcol3.set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
+		#ltcol3.set_sizing(Gtk.TREE_VIEW_COLUMN_FIXED)
 		ltcol3.set_sort_column_id(3)
 		ltcol3.set_expand(True)
 
@@ -195,9 +197,9 @@ class MainWin:
 		self.listree.set_enable_search(True)
 
 		## Menus
-		self.list_popup = gtk.Menu()
-		mnu_proper = gtk.ImageMenuItem(gtk.STOCK_PROPERTIES)
-		mnu_remove = gtk.ImageMenuItem(gtk.STOCK_REMOVE)
+		self.list_popup = Gtk.Menu()
+		mnu_proper = Gtk.MenuItem.new_with_label("Properties")
+		mnu_remove = Gtk.MenuItem.new_with_label("Remove")
 		mnu_proper.show()
 		mnu_remove.show()
 		self.list_popup.append(mnu_remove)
@@ -210,8 +212,7 @@ class MainWin:
 		## Other objects
 		self.statusbar = builder.get_object("statusbar")
 		self.statusbar.push(self.statusbar.get_context_id("app"), "Ready.")
-		self.progbar   = gtk.ProgressBar()
-		self.progbar.set_orientation(gtk.PROGRESS_LEFT_TO_RIGHT)
+		self.progbar   = Gtk.ProgressBar()
 		self.progbar.set_text("Buffering...")
 
 		self.lbl_track = builder.get_object("lbl_track")
@@ -281,16 +282,16 @@ class MainWin:
 		builder = self.builder2
 		builder.add_from_file("ui/radiowin-ui.glade")
 		radiowin = builder.get_object("radiowin")
-		builder.connect_signals({"on_bt_radiowin_ok_clicked"    : self.cb_btradiowin_ok,
-								   "on_bt_radiowin_cancel_clicked": self.cb_btradiowin_cancel,
-								   "on_bt_radiowin_clear_clicked" : self.cb_btradiowin_clear}, radiowin)
-		radiowin.set_position(gtk.WIN_POS_CENTER)
+		builder.connect_signals({"on_bt_radiowin_ok_clicked"    : (self.cb_btradiowin_ok, radiowin),
+					 "on_bt_radiowin_cancel_clicked": (self.cb_btradiowin_cancel, radiowin),
+				         "on_bt_radiowin_clear_clicked" : (self.cb_btradiowin_clear, radiowin)})
+		radiowin.set_position(Gtk.WindowPosition.CENTER)
 		radiowin.set_title("New station")
-		icon = radiowin.render_icon(gtk.STOCK_NEW, gtk.ICON_SIZE_BUTTON)
+		icon = radiowin.render_icon(Gtk.STOCK_NEW, Gtk.IconSize.BUTTON)
 		radiowin.set_icon(icon)
 		combobox = builder.get_object("cb_radiowin_g")
 
-		cell3 = gtk.CellRendererText()
+		cell3 = Gtk.CellRendererText()
 		combobox.pack_start(cell3, True)
 		combobox.add_attribute(cell3, 'text', 0)  
 		combobox.set_model(self.gstore)
@@ -298,7 +299,7 @@ class MainWin:
 
 		radiowin.classify = classifier("classifier")
 		hbox = self.builder2.get_object("hbox_class")
-		hbox.pack_end(radiowin.classify.get_child())
+		hbox.pack_end(radiowin.classify.get_child(), True, True, 0)
 
 		radiowin.set_transient_for(self.window)
 		radiowin.set_modal(True)
@@ -313,23 +314,23 @@ class MainWin:
 		builder = self.builder2
 		builder.add_from_file("ui/radiowin-ui.glade")
 		radiowin = builder.get_object("radiowin")
-		builder.connect_signals({"on_bt_radiowin_ok_clicked"    : self.cb_btradiowin_ok,
-								   "on_bt_radiowin_cancel_clicked": self.cb_btradiowin_cancel,
-								   "on_bt_radiowin_clear_clicked" : self.cb_btradiowin_clear}, radiowin)
-		radiowin.set_position(gtk.WIN_POS_CENTER)
+		builder.connect_signals({"on_bt_radiowin_ok_clicked"    : (self.cb_btradiowin_ok, radiowin),
+					 "on_bt_radiowin_cancel_clicked": (self.cb_btradiowin_cancel, radiowin),
+					 "on_bt_radiowin_clear_clicked" : (self.cb_btradiowin_clear, radiowin)})
+		radiowin.set_position(Gtk.WindowPosition.CENTER)
 		radiowin.set_title("Edit station")
-		icon = radiowin.render_icon(gtk.STOCK_EDIT, gtk.ICON_SIZE_BUTTON)
+		icon = radiowin.render_icon(Gtk.STOCK_EDIT, Gtk.IconSize.BUTTON)
 		radiowin.set_icon(icon)
 		combobox = builder.get_object("cb_radiowin_g")
 
-		cell3 = gtk.CellRendererText()
+		cell3 = Gtk.CellRendererText()
 		combobox.pack_start(cell3, True)
 		combobox.add_attribute(cell3, 'text', 0)  
 		combobox.set_model(self.gstore)
 
 		radiowin.classify = classifier("classifier")
 		hbox = builder.get_object("hbox_class")
-		hbox.pack_end(radiowin.classify.get_child())
+		hbox.pack_end(radiowin.classify.get_child(), True, True, 0)
 
 		# Load values
 		selection  = self.listree.get_selection()
@@ -413,25 +414,25 @@ class MainWin:
 		
 		buffdesc = txtdesc.get_buffer()
 		desc     = buffdesc.get_text(buffdesc.get_iter_at_offset(0),
-									 buffdesc.get_iter_at_offset(buffdesc.get_char_count()))
+					     buffdesc.get_iter_at_offset(buffdesc.get_char_count()), False)
 
  
  		# Validate
  		if len(name) == 0 or len(url) == 0:
-			dia = gtk.Dialog(userdata.get_title(), userdata.get_toplevel(),
-					gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-					(gtk.STOCK_OK, gtk.RESPONSE_OK))
-			wicon = gtk.image_new_from_stock(gtk.STOCK_DIALOG_WARNING, gtk.ICON_SIZE_DIALOG)
-			hbox  = gtk.HBox()
+			dia = Gtk.Dialog(userdata.get_title(), userdata.get_toplevel(),
+					Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+					(Gtk.STOCK_OK, Gtk.ResponseType.OK))
+			wicon = Gtk.Image.new_from_stock(Gtk.STOCK_DIALOG_WARNING, Gtk.IconSize.DIALOG)
+			hbox  = Gtk.HBox()
 			hbox.pack_start(wicon)
 
 			if len(name) == 0:
-				hbox.pack_start(gtk.Label('The station name is empty!'))
+				hbox.pack_start(Gtk.Label('The station name is empty!'))
 			else:
-				hbox.pack_start(gtk.Label('The URL is empty!'))
+				hbox.pack_start(Gtk.Label('The URL is empty!'))
 			
 			dia.vbox.pack_start(hbox)
-			picon = dia.render_icon(gtk.STOCK_DIALOG_WARNING, gtk.ICON_SIZE_MENU)
+			picon = dia.render_icon(Gtk.STOCK_DIALOG_WARNING, Gtk.IconSize.MENU)
 			dia.set_icon(picon)
 			dia.show_all()
 			dia.run()
@@ -443,15 +444,15 @@ class MainWin:
 			try:
 				self.list[name]
 
-				dia = gtk.Dialog(userdata.get_title(), userdata.get_toplevel(),
-						gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-						(gtk.STOCK_OK, gtk.RESPONSE_OK))
-				wicon = gtk.image_new_from_stock(gtk.STOCK_DIALOG_WARNING, gtk.ICON_SIZE_DIALOG)
-				hbox  = gtk.HBox()
+				dia = Gtk.Dialog(userdata.get_title(), userdata.get_toplevel(),
+						Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+						(Gtk.STOCK_OK, Gtk.ResponseType.OK))
+				wicon = Gtk.Image.new_from_stock(Gtk.STOCK_DIALOG_WARNING, Gtk.IconSize.DIALOG)
+				hbox  = Gtk.HBox()
 				hbox.pack_start(wicon)
-				hbox.pack_start(gtk.Label('The new station already exist!'))
+				hbox.pack_start(Gtk.Label('The new station already exist!'))
 				dia.vbox.pack_start(hbox)
-				picon = dia.render_icon(gtk.STOCK_DIALOG_WARNING, gtk.ICON_SIZE_MENU)
+				picon = dia.render_icon(Gtk.STOCK_DIALOG_WARNING, Gtk.IconSize.MENU)
 				dia.set_icon(picon)
 				dia.show_all()
 				dia.run()
@@ -509,7 +510,7 @@ class MainWin:
 				path, col, cellx, celly = pthinfo
 				treeview.grab_focus()
 				treeview.set_cursor(path, col, 0)
-				self.list_popup.popup(None, None, None, event.button, time)
+				self.list_popup.popup(None, None, None, None, event.button, time)
 			return True
 
 	##
@@ -529,10 +530,10 @@ class MainWin:
 				return False
 	
 			# Load properties window
-			builder = gtk.Builder()
+			builder = Gtk.Builder()
 			builder.add_from_file("ui/properties-ui.glade")
 			propwin = builder.get_object("propwin")
-			builder.connect_signals({"on_bt_propwin_ok_clicked" : self.cb_propwin_ok}, propwin)
+			builder.connect_signals({"on_bt_propwin_ok_clicked" : (self.cb_propwin_ok, propwin)})
 
 			txtname    = builder.get_object("txt_propwin_name")
 			txturl     = builder.get_object("txt_propwin_url")
@@ -549,12 +550,12 @@ class MainWin:
 				buffdesc.set_text(radio.description)
 
 			propwin.classify = classifier("propclf")
-			hbox_class.pack_start(propwin.classify.get_child())
+			hbox_class.pack_start(propwin.classify.get_child(), True, True, 0)
 			hbox_class.reorder_child(propwin.classify.get_child(), 1)
 			propwin.classify.set_value(int(radio.classify))
 
 			# Show window
-			propwin.set_position(gtk.WIN_POS_CENTER)
+			propwin.set_position(Gtk.WindowPosition.CENTER)
 			propwin.set_transient_for(self.window)
 			propwin.set_modal(True)
 			propwin.show_all()
@@ -577,21 +578,21 @@ class MainWin:
 				print 'internal error'
 				return False
 	
-		dia = gtk.Dialog("Remove Station", None,
-						gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-						(gtk.STOCK_YES, gtk.RESPONSE_YES, gtk.STOCK_NO, gtk.RESPONSE_NO))
-		wicon = gtk.image_new_from_stock(gtk.STOCK_DIALOG_QUESTION, gtk.ICON_SIZE_DIALOG)
-		hbox  = gtk.HBox()
-		hbox.pack_start(wicon)
-		hbox.pack_start(gtk.Label("This will remove " + radio.name + " from the list. Are you sure?"))
-		dia.vbox.pack_start(hbox)
-		picon = dia.render_icon(gtk.STOCK_DIALOG_QUESTION, gtk.ICON_SIZE_MENU)
+		dia = Gtk.Dialog("Remove Station", None,
+						Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+						(Gtk.STOCK_YES, Gtk.ResponseType.YES, Gtk.STOCK_NO, Gtk.ResponseType.NO))
+		wicon = Gtk.Image.new_from_stock(Gtk.STOCK_DIALOG_QUESTION, Gtk.IconSize.DIALOG)
+		hbox  = Gtk.HBox()
+		hbox.pack_start(wicon, True, True, 0)
+		hbox.pack_start(Gtk.Label("This will remove " + radio.name + " from the list. Are you sure?"), True, True, 0)
+		dia.vbox.pack_start(hbox, True, True, 0)
+		picon = dia.render_icon_pixbuf(Gtk.STOCK_DIALOG_QUESTION, Gtk.IconSize.DIALOG)
 		dia.set_icon(picon)
 		dia.show_all()
 		response = dia.run()
 		dia.destroy()
 
-		if response == gtk.RESPONSE_YES:
+		if response == Gtk.ResponseType.YES:
 			del dict[rname]
 			model.remove(iter)
 
@@ -606,25 +607,25 @@ class MainWin:
 	# File->open callback
 	#
 	def cb_mnu_file_open(self, menuitem, userdata=None):
-		dia = gtk.FileChooserDialog("Open list", None, gtk.FILE_CHOOSER_ACTION_OPEN,
-				(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OPEN, gtk.RESPONSE_ACCEPT))
+		dia = Gtk.FileChooserDialog("Open list", None, Gtk.FileChooserAction.OPEN,
+				(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.ACCEPT))
 		
 		# xml filter
-		filter = gtk.FileFilter()
+		filter = Gtk.FileFilter()
 		filter.set_name("XML Files")
 		filter.add_mime_type("text/xml")
 		filter.add_pattern("*.xml")
 		dia.add_filter(filter)
 
 		# 'all files' filter
-		filter = gtk.FileFilter()
+		filter = Gtk.FileFilter()
 		filter.set_name("All files")
 		filter.add_pattern("*")
 		dia.add_filter(filter)
 
 		response = dia.run()
 
-		if response == gtk.RESPONSE_ACCEPT:
+		if response == Gtk.ResponseType.ACCEPT:
 			filename = dia.get_filename()
 			dia.destroy()
 
@@ -633,15 +634,15 @@ class MainWin:
 				self.rlist = new_list
 				self.populate_list(self.rlist.get_list())
 			else:
-				dia   = gtk.Dialog("Error", None,
-							gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-							(gtk.STOCK_OK, gtk.RESPONSE_OK))
-				wicon = gtk.image_new_from_stock(gtk.STOCK_DIALOG_ERROR, gtk.ICON_SIZE_DIALOG)
-				hbox  = gtk.HBox()
+				dia   = Gtk.Dialog("Error", None,
+							Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+							(Gtk.STOCK_OK, Gtk.ResponseType.OK))
+				wicon = Gtk.Image.new_from_stock(Gtk.STOCK_DIALOG_ERROR, Gtk.IconSize.DIALOG)
+				hbox  = Gtk.HBox()
 				hbox.pack_start(wicon)
-				hbox.pack_start(gtk.Label("Error on open " + filename + " file."))
+				hbox.pack_start(Gtk.Label("Error on open " + filename + " file."))
 				dia.vbox.pack_start(hbox)
-				picon = dia.render_icon(gtk.STOCK_DIALOG_ERROR, gtk.ICON_SIZE_MENU)
+				picon = dia.render_icon(Gtk.STOCK_DIALOG_ERROR)
 				dia.set_icon(picon)
 				dia.show_all()
 				dia.run()
@@ -655,39 +656,39 @@ class MainWin:
 	#
 	def cb_mnu_file_save(self, menuitem, userdata=None):
 		
-		dia = gtk.FileChooserDialog("Save list", None, gtk.FILE_CHOOSER_ACTION_SAVE,
-				(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_SAVE, gtk.RESPONSE_ACCEPT))
+		dia = Gtk.FileChooserDialog("Save list", None, Gtk.FileChooserAction.SAVE,
+				(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_SAVE, Gtk.ResponseType.ACCEPT))
 		
 		# xml filter
-		filter = gtk.FileFilter()
+		filter = Gtk.FileFilter()
 		filter.set_name("XML Files")
 		filter.add_mime_type("text/xml")
 		filter.add_pattern("*.xml")
 		dia.add_filter(filter)
 
 		# 'all files' filter
-		filter = gtk.FileFilter()
+		filter = Gtk.FileFilter()
 		filter.set_name("All files")
 		filter.add_pattern("*")
 		dia.add_filter(filter)
 
 		response = dia.run()
 	
-		if response == gtk.RESPONSE_ACCEPT:
+		if response == Gtk.ResponseType.ACCEPT:
 			filename = dia.get_filename()
 			dia.destroy()
 			try:
 				self.rlist.write_to_file(filename)
 			except:
-				dia   = gtk.Dialog("Error", None,
-							gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-							(gtk.STOCK_OK, gtk.RESPONSE_OK))
-				wicon = gtk.image_new_from_stock(gtk.STOCK_DIALOG_ERROR, gtk.ICON_SIZE_DIALOG)
-				hbox  = gtk.HBox()
+				dia   = Gtk.Dialog("Error", None,
+							Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+							(Gtk.STOCK_OK, Gtk.ResponseType.OK))
+				wicon = Gtk.Image.new_from_stock(Gtk.STOCK_DIALOG_ERROR, Gtk.IconSize.DIALOG)
+				hbox  = Gtk.HBox()
 				hbox.pack_start(wicon)
-				hbox.pack_start(gtk.Label("Error on save " + filename +" file."))
+				hbox.pack_start(Gtk.Label("Error on save " + filename +" file."))
 				dia.vbox.pack_start(hbox)
-				picon = dia.render_icon(gtk.STOCK_DIALOG_ERROR, gtk.ICON_SIZE_MENU)
+				picon = dia.render_icon(Gtk.STOCK_DIALOG_ERROR)
 				dia.set_icon(picon)
 				dia.show_all()
 				dia.run()
@@ -701,11 +702,11 @@ class MainWin:
 	#
 	def cb_mnu_help_about(self, menuitem, userdata=None):
 
-		logo = gtk.image_new_from_file("ui/radiorec.png")
-		aboutwin = gtk.AboutDialog()
+		logo = Gtk.Image.new_from_file("ui/radiorec.png")
+		aboutwin = Gtk.AboutDialog()
 		aboutwin.set_name("Radiorec")
 		aboutwin.set_logo(logo.get_pixbuf())
-		icon = aboutwin.render_icon(gtk.STOCK_ABOUT, gtk.ICON_SIZE_MENU)
+		icon = aboutwin.render_icon(Gtk.STOCK_ABOUT, Gtk.IconSize.MENU)
 		aboutwin.set_icon(icon)
 		aboutwin.set_version(self.version)
 		aboutwin.set_authors(["Renê de Souza Pinto <rene@renesp.com.br>"])
@@ -740,15 +741,15 @@ class MainWin:
 		builder = self.builder3
 		builder.add_from_file("ui/preferences-ui.glade")
 		prefwin = builder.get_object("prefwin")
-		builder.connect_signals({"on_bt_prefwin_apply_clicked"  : self.cb_prefwin_apply,
-		   					     "on_bt_prefwin_cancel_clicked" : self.cb_btradiowin_cancel}, prefwin)
-		prefwin.set_position(gtk.WIN_POS_CENTER)
+		builder.connect_signals({"on_bt_prefwin_apply_clicked"  : (self.cb_prefwin_apply, prefwin),
+		   			 "on_bt_prefwin_cancel_clicked" : (self.cb_btradiowin_cancel, prefwin)})
+		prefwin.set_position(Gtk.WindowPosition.CENTER)
 		prefwin.set_title("Preferences")
-		icon     = prefwin.render_icon(gtk.STOCK_PREFERENCES, gtk.ICON_SIZE_BUTTON)
+		icon     = prefwin.render_icon(Gtk.STOCK_PREFERENCES, Gtk.IconSize.BUTTON)
 		prefwin.set_icon(icon)
 		
 		# Check recorder plugins
-		rpstore  = gtk.ListStore(gobject.TYPE_STRING)
+		rpstore  = Gtk.ListStore(GObject.TYPE_STRING)
 		rplugins = self.playback.get_rec_plugins()
 		index    = 0
 		dicp     = {}
@@ -770,7 +771,7 @@ class MainWin:
 		prefwin.dicp = dicp
 
 		combobox = builder.get_object("cb_prefwin_fmt")
-		cell3 = gtk.CellRendererText()
+		cell3 = Gtk.CellRendererText()
 		combobox.pack_start(cell3, True)
 		combobox.add_attribute(cell3, 'text', 0)
 		combobox.set_model(rpstore)
@@ -853,7 +854,7 @@ class MainWin:
 		except:
 			print "ERROR: Could not write configuration file!"
 
-		gtk.main_quit()
+		Gtk.main_quit()
 
 
 	##
@@ -861,9 +862,9 @@ class MainWin:
 	#
 	def cb_win_state(self, widget, event, userdata=None):
 
-		if event.type == gtk.gdk.WINDOW_STATE:
-			if (event.changed_mask & gtk.gdk.WINDOW_STATE_MAXIMIZED):
-				if (event.new_window_state & gtk.gdk.WINDOW_STATE_MAXIMIZED):
+		if event.type == Gdk.WindowState:
+			if (event.changed_mask & Gdk.WindowState.MAXIMIZED):
+				if (event.new_window_state & Gdk.WindowState.MAXIMIZED):
 					self.window.wstate = Userconf.WINDOW_MAXIMIZED
 				else:
 					self.window.wstate = Userconf.WINDOW_NORMAL
@@ -874,7 +875,7 @@ class MainWin:
 	#
 	def cb_listree_bpress(self, widget, event):
 		if event.button == 1:
-			if event.type == gtk.gdk._2BUTTON_PRESS:
+			if event.type == Gdk.EventType._2BUTTON_PRESS:
 				# Double click
 				self.cb_play(None, None)
 
@@ -947,32 +948,32 @@ class MainWin:
 	#
 	def cb_on_error(self, pb, errors, userdata=None):
 
-		gtk.gdk.threads_enter()
+		Gdk.threads_enter()
 		
-		dia = gtk.Dialog("Error", None,
-							gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-							(gtk.STOCK_OK, gtk.RESPONSE_OK))
-		wicon  = gtk.image_new_from_stock(gtk.STOCK_DIALOG_ERROR, gtk.ICON_SIZE_DIALOG)
-		msgerr = gtk.Label(errors[1])
+		dia = Gtk.Dialog("Error", None,
+							Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+							(Gtk.STOCK_OK, Gtk.ResponseType.OK))
+		wicon  = Gtk.Image.new_from_stock(Gtk.STOCK_DIALOG_ERROR, Gtk.IconSize.DIALOG)
+		msgerr = Gtk.Label(errors[1])
 		msgerr.set_line_wrap(True)
-		hbox   = gtk.HBox()
-		hbox.pack_start(wicon)
-		hbox.pack_start(msgerr)
-		dia.vbox.pack_start(hbox)
-		picon = dia.render_icon(gtk.STOCK_DIALOG_ERROR, gtk.ICON_SIZE_MENU)
+		hbox   = Gtk.HBox()
+		hbox.pack_start(wicon, True, True, 0)
+		hbox.pack_start(msgerr, True, True, 0)
+		dia.vbox.pack_start(hbox, True, True, 0)
+		picon = dia.render_icon(Gtk.STOCK_DIALOG_ERROR, Gtk.IconSize.DIALOG)
 		dia.set_icon(picon)
 		dia.show_all()
 		dia.run()
 		dia.destroy()
 
-		gtk.gdk.threads_leave()
+		Gdk.threads_leave()
 
 	##
 	# Change state callback
 	#
 	def cb_pb_cg_state(self, pb, userdata=None):
 
-		gtk.gdk.threads_enter()
+		Gdk.threads_enter()
 
 		st = self.playback.get_state()
 
@@ -1004,12 +1005,12 @@ class MainWin:
 			self.statusbar.push(self.statusbar.get_context_id("playback"), "Ready.")
 
 			if self.progbar.get_parent() is not None:
-				gtk.Container.remove(self.statusbar, self.progbar)
+				Gtk.Container.remove(self.statusbar, self.progbar)
 
 			self.lbl_track.set_text("No stream.")
 			self.lbl_time.set_text("00:00")
 
-		gtk.gdk.threads_leave()
+		Gdk.threads_leave()
 
 
 	##
@@ -1019,7 +1020,7 @@ class MainWin:
 	def cb_cg_buffer(self, pb, percent, userdata=None):
 
 		if percent >= 100:
-			gtk.Container.remove(self.statusbar, self.progbar)
+			Gtk.Container.remove(self.statusbar, self.progbar)
 		else:
 			if self.progbar.get_parent() == None:
 				self.statusbar.pack_end(self.progbar, False, True, 0)
@@ -1042,6 +1043,7 @@ class MainWin:
 		else:
 			self.lbl_track.set_text("Untitled")
 
+
 	##
 	# Change duration callback
 	#
@@ -1056,10 +1058,10 @@ class MainWin:
 	#
 	def cb_get_time(self, userdata=None):
 		
-		gtk.gdk.threads_enter()					
+                Gdk.threads_enter()					
 		self.lbl_time.set_text(self.playback.get_time_str())
 		self.hstime.set_value(self.playback.get_time())
-		gtk.gdk.threads_leave()
+		Gdk.threads_leave()
 		return True
 
 
@@ -1069,6 +1071,6 @@ class MainWin:
 if __name__ == "__main__":
 	mwin = MainWin()
 	mwin.populate_list(mwin.rlist.get_list())
-	gtk.gdk.threads_init()
-	gtk.main()
+	Gdk.threads_init()
+	Gtk.main()
 

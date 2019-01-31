@@ -19,9 +19,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import pygtk
-pygtk.require("2.0")
-import gtk
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import GdkPixbuf, Gdk, Gtk
 
 
 ##
@@ -33,7 +33,7 @@ import gtk
 #
 # Provide the widget to classify things
 #
-class classifier(gtk.Bin):
+class classifier(Gtk.Bin):
 
 
 	##
@@ -42,8 +42,8 @@ class classifier(gtk.Bin):
 	#
 	def __init__(self, name='classifier'):
 		
-		self.evbox     = gtk.EventBox()
-		self.hbox      = gtk.HBox(False, 1)
+		self.evbox     = Gtk.EventBox()
+		self.hbox      = Gtk.HBox(False, 1)
 		self.stars     = []
 		self.enable    = False
 
@@ -51,7 +51,7 @@ class classifier(gtk.Bin):
 			sstar = star(0, s)
 			sstar.connect("clicked", self.cb_star_clicked)
 			self.stars.append(sstar)
-			self.hbox.pack_start(self.stars[s].get_widget(), False, False)
+			self.hbox.pack_start(self.stars[s].get_widget(), False, False, 0)
 
 		self.evbox.add(self.hbox)
 		self.evbox.set_name(name)
@@ -59,7 +59,7 @@ class classifier(gtk.Bin):
 
 
 	##
-	# Method of gtk.Bin
+	# Method of Gtk.Bin
 	#
 	def get_child(self):
 		return(self.evbox)
@@ -74,10 +74,10 @@ class classifier(gtk.Bin):
 		self.enable = state
 
 		if state == True:
-			cursor = gtk.gdk.Cursor(gtk.gdk.HAND2)
-			self.evbox.window.set_cursor(cursor)
+			cursor = Gdk.Cursor.new(Gdk.CursorType.HAND2)
+			self.evbox.get_window().set_cursor(cursor)
 		else:
-			self.evbox.window.set_cursor(None)
+			self.evbox.get_window().set_cursor(None)
 
 
 	##
@@ -121,7 +121,7 @@ class classifier(gtk.Bin):
 
 		x    = 0
 		size = len(self.stars)
-		draw = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, True, 8, (w * size)+1, h+1)
+		draw = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8, (w * size)+1, h+1)
 
 		for st in self.stars:
 			stimg        = st.get_image()
@@ -152,10 +152,10 @@ class star:
 	#
 	def __init__(self, state=0, pos=0):
 
-		self.widget  = gtk.EventBox()
-		self.img_off = gtk.image_new_from_file("radiorec/star_off.png")
-		self.img_on  = gtk.image_new_from_file("radiorec/star_on.png")
-		self.img     = gtk.image_new_from_pixbuf(self.img_off.get_pixbuf())
+		self.widget  = Gtk.EventBox()
+		self.img_off = Gtk.Image.new_from_file("radiorec/star_off.png")
+		self.img_on  = Gtk.Image.new_from_file("radiorec/star_on.png")
+		self.img     = Gtk.Image.new_from_pixbuf(self.img_off.get_pixbuf())
 		self.set_state(state)
 
 		if pos >= 0 and pos <= 4:

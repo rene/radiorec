@@ -19,13 +19,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import pygst
-pygst.require("0.10")
-import gst
+import gi
+gi.require_version('Gst', '1.0')
+from gi.repository import GObject, Gst
 import os
 from threading import RLock
 from threading import Thread
-
+Gst.init(None)
 
 ##
 # Playblack class
@@ -76,7 +76,7 @@ class playback:
 
 		# Properties of stream
 		self.organization = "unknown"
-		self.bitrate      = "unknown"
+		self.bitrate      = 0
 		self.genre        = "unknown"
 		self.title        = "untitled"
 		self.duration     = None
@@ -85,29 +85,32 @@ class playback:
 		## Gstreamer
 
 		self.lock1 = RLock()
-		self.lock2 = RLock()
 
 		# Create the pipeline
-		self.pipeline = gst.Pipeline("playback")
+		self.pipeline = Gst.Pipeline("playback")
 
 		# uridecodebin
-		self.uridec = gst.element_factory_make("uridecodebin", "uridecoder")
+		self.uridec = Gst.ElementFactory.make("uridecodebin", "uridecoder")
 		self.uridec.connect("pad-added", self.cb_pad_added)
 		self.pipeline.add(self.uridec)
 
 
 		# Create the player Bin
-		self.player = gst.Bin("player")
+		self.player = Gst.Bin("player")
 		
-		queue   = gst.element_factory_make("queue", "queue")
-		convert = gst.element_factory_make("audioconvert", "converter")
-		output  = gst.element_factory_make("autoaudiosink", "output")
+		queue   = Gst.ElementFactory.make("queue", "queue")
+		convert = Gst.ElementFactory.make("audioconvert", "converter")
+		output  = Gst.ElementFactory.make("autoaudiosink", "output")
 
-		self.player.add(queue, convert, output)
-		gst.element_link_many(queue, convert, output)
+                self.player.add(queue)
+                self.player.add(convert)
+                self.player.add(output)
 
-		pad = queue.get_pad("sink")
-		self.player.add_pad(gst.GhostPad("sink", pad))
+                queue.link(convert)
+                convert.link(output)
+
+		pad = queue.get_static_pad("sink")
+		self.player.add_pad(Gst.GhostPad.new("sink", pad))
 
 
 		# Create recorder Bin
@@ -126,15 +129,15 @@ class playback:
 
 
 		# Create 1-to-N pipe fitting
-		tee = gst.element_factory_make("tee", "tee")
-		teepad_0 = tee.get_request_pad("src0")
-		teepad_1 = tee.get_request_pad("src1")
+		tee = Gst.ElementFactory.make("tee", "tee")
+		teepad_0 = tee.get_request_pad("src_0")
+		teepad_1 = tee.get_request_pad("src_1")
 
 		# Add to pipeline
 		self.pipeline.add(tee, self.player)
 
 		# Link tee with player and recorder
-		pad_p = self.player.get_pad("sink")
+		pad_p = self.player.get_static_pad("sink")
 		teepad_0.link(pad_p)
 
 		# Here the pipeline is configured only to play the stream
@@ -152,33 +155,39 @@ class playback:
 	def create_rec_bin(self, fmt):
 
 		if fmt == playback.FORMAT_OGG:
-			recbin  = gst.Bin("recorder")
-			queue   = gst.element_factory_make("queue", "queue")
-			convert = gst.element_factory_make("audioconvert", "converter")
-			encoder = gst.element_factory_make("vorbisenc", "encoder")
-			muxer   = gst.element_factory_make("oggmux", "muxer")
-			output  = gst.element_factory_make("filesink", "output")
+			recbin  = Gst.Bin("recorder")
+			queue   = Gst.ElementFactory.make("queue", "queue")
+			convert = Gst.ElementFactory.make("audioconvert", "converter")
+			encoder = Gst.ElementFactory.make("vorbisenc", "encoder")
+			muxer   = Gst.ElementFactory.make("oggmux", "muxer")
+			output  = Gst.ElementFactory.make("filesink", "output")
 			
 			recbin.add(queue, convert, encoder, muxer, output)
-			gst.element_link_many(queue, convert, encoder, muxer, output)
+			queue.link(convert)
+                        convert.link(encoder)
+                        encoder.link(muxer)
+                        muxer.link(output)
 
-			pad = queue.get_pad("sink")
-			recbin.add_pad(gst.GhostPad("sink", pad))
+			pad = queue.get_static_pad("sink")
+			recbin.add_pad(Gst.GhostPad.new("sink", pad))
 
 			recbin.is_plugged = False
 
 		elif fmt == playback.FORMAT_MP3:
-			recbin = gst.Bin("recorder")
-			queue   = gst.element_factory_make("queue", "queue")
-			convert = gst.element_factory_make("audioconvert", "converter")
-			encoder = gst.element_factory_make("lame", "muxer")
-			output  = gst.element_factory_make("filesink", "output")
+			recbin = Gst.Bin("recorder")
+			queue   = Gst.ElementFactory.make("queue", "queue")
+			convert = Gst.ElementFactory.make("audioconvert", "converter")
+			encoder = Gst.ElementFactory.make("lame", "muxer")
+			output  = Gst.ElementFactory.make("filesink", "output")
 			
 			recbin.add(queue, convert, encoder, output)
-			gst.element_link_many(queue, convert, encoder, output)
+                        queue.link(convert)
+                        convert.link(encoder)
+                        encoder.link(muxer)
+                        muxer.link(output)
 
-			pad = queue.get_pad("sink")
-			recbin.add_pad(gst.GhostPad("sink", pad))
+			pad = queue.get_static_pad("sink")
+			recbin.add_pad(Gst.GhostPad.new("sink", pad))
 
 			recbin.is_plugged = False
 		else:
@@ -195,15 +204,15 @@ class playback:
 		t = message.type
 
 		## Change state
-		if t == gst.MESSAGE_STATE_CHANGED:
+		if t == Gst.MessageType.STATE_CHANGED:
 
 			old, new, pending = message.parse_state_changed()
 
-			if new == gst.STATE_PLAYING:
+			if new == Gst.State.PLAYING:
 				self.state = playback.STATE_PLAYING
-			elif new == gst.STATE_NULL:
+			elif new == Gst.State.NULL:
 				self.state = playback.STATE_STOPPED
-			elif new == gst.STATE_PAUSED:
+			elif new == Gst.State.PAUSED:
 				self.state = playback.STATE_PAUSED
 			else:
 				return
@@ -212,31 +221,30 @@ class playback:
 				self.cb_cg_state(self, self.ud_cg_state)
 
 		## Duration
-		if t == gst.MESSAGE_DURATION:
-
+		if t == Gst.MessageType.DURATION_CHANGED:
 			fmt, dur      = message.parse_duration()
 			self.duration = dur
 			if self.cb_cg_duration is not None:
 				self.cb_cg_duration(self, self.ud_cg_duration)
 
 		## Buffering
-		if t == gst.MESSAGE_BUFFERING:
+		if t == Gst.MessageType.BUFFERING:
 
 			percent = message.parse_buffering()
 			if self.cb_cg_buffer is not None:
 				self.cb_cg_buffer(self, percent, self.ud_cg_buffer)
 
 		## End of stream
-		if t == gst.MESSAGE_EOS:
-			self.pipeline.set_state(gst.STATE_NULL)
+		if t == Gst.MessageType.EOS:
+			self.pipeline.set_state(Gst.State.NULL)
 
 			self.state = playback.STATE_STOPPED
 			if self.cb_cg_state is not None:
 				self.cb_cg_state(self, self.ud_cg_state)
 
 		## Error
-		elif t == gst.MESSAGE_ERROR:
-			self.player.set_state(gst.STATE_NULL)
+		elif t == Gst.MessageType.ERROR:
+			self.player.set_state(Gst.State.NULL)
 			err, debug = message.parse_error()
 
 			if self.cb_error is not None:
@@ -245,54 +253,69 @@ class playback:
 				## Somebody needs to take care of errors
 				print 'playback ERROR:',err,debug
 			
-			self.pipeline.set_state(gst.STATE_NULL)
+			self.pipeline.set_state(Gst.State.NULL)
 			self.state = playback.STATE_STOPPED
 			if self.cb_cg_state is not None:
 				self.cb_cg_state(self, self.ud_cg_state)
 
 		## Information
-		elif t == gst.MESSAGE_TAG:
-			taglist = message.parse_tag()
+		elif t == Gst.MessageType.TAG:
+			taglist    = message.parse_tag()
+                        updatefile = False
 
 			# Parse information
-			for key in taglist.keys():
+                        for i in range(0,taglist.n_tags()):
+                                key = taglist.nth_tag_name(i)
+
 				# Organization
 				if key == "organization":
 					if key != self.organization:
-						self.organization = taglist[key]
-						self.update_output_file()
+						self.organization = taglist.get_string(key)[1]
+						updatefile = True
 				# Genre
 				elif key == "genre":
 					if key != self.genre:
-						self.genre = taglist[key]
-						self.update_output_file()
+						self.genre = taglist.get_string(key)[1]
+						updatefile = True
 				# Bitrate
 				elif key == "bitrate":
 					if key != self.bitrate:
-						self.bitrate = taglist[key]
-						self.update_output_file()
+                                            if taglist.get_uint(key)[0]:
+                                                self.bitrate = taglist.get_uint(key)[1]
+						updatefile = True
+                                                
 				# Title
 				elif key == "title":
-					self.title = taglist[key]
+					self.title = taglist.get_string(key)[1]
 					self.title = self.title.replace('/','-')
-					self.update_output_file()
+					updatefile = True
 					if self.cb_cg_track is not None:
 						self.cb_cg_track(self, self.ud_cg_track)
+
+                        # Update output file (if needed)
+                        if updatefile:
+                            self.update_output_file()
 
 
 	##
 	# callback for pad-added of uridecodebin
 	#
 	def cb_pad_added(self, src, pad):
+	        tee    = self.pipeline.get_by_name("tee")
+		teepad = tee.get_static_pad("sink")
+		pad.link(teepad)
 
-		name = pad.get_caps()[0].get_name()
-		if name == 'audio/x-raw-float' or name == 'audio/x-raw-int':
-			tee    = self.pipeline.get_by_name("tee")
-			teepad = tee.get_pad("sink")
-			pad.link(teepad)
-			return False
-		else:
-			return True
+                #stream = pad.get_stream()
+                #print stream.get_caps()
+		#name = stream.get_caps()[0].get_name()
+		#if name == 'audio/x-raw-float' or name == 'audio/x-raw-int':
+		#	tee    = self.pipeline.get_by_name("tee")
+		#	teepad = tee.get_static_pad("sink")
+		#	pad.link(teepad)
+		#	return False
+		#else:
+		#return True
+                return False
 
 
 	##
@@ -415,6 +438,11 @@ class playback:
 				if self.rec_trigger:
 					self.recorder_plug(dest)
 			else:
+                                # Check if output file name has changed
+	                        filesink = self.recorder.get_by_name("output")
+                                if filesink.get_property("location") == dest:
+                                    return dest
+
 				##
 				# FIXME: This is a workaround (is it?) to allow the change of
 				# property location from filesink element. We unplug the
@@ -423,32 +451,35 @@ class playback:
 				# There is a better ways (without unplug from pipeline)?
 				# Feel free to try another approach ;)
 				#
-				if self.lock1.acquire(False):
+				if self.lock1.acquire(0):
 					try:
+                                                print "update plug/unplug"
 						## Unplug recorder from pipeline
-						self.pipeline.set_state(gst.STATE_PAUSED)
+						self.pipeline.set_state(Gst.State.PAUSED)
 
 						tee = self.pipeline.get_by_name("tee")
-						teepad = tee.get_pad("src1")
+						teepad = tee.get_static_pad("src_1")
 
-						rpad = self.recorder.get_pad("sink")
+						rpad = self.recorder.get_static_pad("sink")
 						teepad.unlink(rpad)
 
 						self.pipeline.remove(self.recorder)
 
 						## Change recorder state and location property of filesink
-						self.recorder.set_state(gst.STATE_NULL)
+						self.recorder.set_state(Gst.State.NULL)
 
 						filesink = self.recorder.get_by_name("output")
 						filesink.set_property("location", dest)
 
 						## Re-plug to pipeline
 						self.pipeline.add(self.recorder)
+						rpad = self.recorder.get_static_pad("sink")
 						teepad.link(rpad)
 
-						self.pipeline.set_state(gst.STATE_PLAYING)
-						self.lock1.release()
+                                                self.lock1.release()
+						self.pipeline.set_state(Gst.State.PLAYING)
 					except:
+                                                self.lock1.release()
 						print "playback ERROR: Could not plug recorder to pipeline!"
 						return None
 
@@ -464,15 +495,15 @@ class playback:
 
 		# Try OGG plugins
 		try:
-			vorbisenc = gst.element_factory_make("vorbisenc", "p_vorbisenc") 
-			oggmux    = gst.element_factory_make("oggmux", "p_oggmux")
+			vorbisenc = Gst.ElementFactory.make("vorbisenc", "p_vorbisenc") 
+			oggmux    = Gst.ElementFactory.make("oggmux", "p_oggmux")
 			list.append(playback.FORMAT_OGG)
 		except:
 			pass
 
 		# Try MP3 plugins
 		try:
-			lame = gst.element_factory_make("lame", "p_lame")
+			lame = Gst.ElementFactory.make("lame", "p_lame")
 			list.append(playback.FORMAT_MP3)
 		except:
 			pass
@@ -487,7 +518,7 @@ class playback:
 	def set_uri(self, uri):
 		
 		self.uri = uri
-		if self.pipeline.get_state() == gst.STATE_PLAYING:
+		if self.pipeline.get_state(10000) == Gst.State.PLAYING:
 			self.set_state(playback.STATE_STOPPED)
 			self.uridec.set_property("uri", uri)
 			self.set_state(playback.STATE_PLAYING)
@@ -510,18 +541,18 @@ class playback:
 	def thread_set_state(self, state):
 
 		if state == playback.STATE_PLAYING:
-			self.pipeline.set_state(gst.STATE_PLAYING)
+			self.pipeline.set_state(Gst.State.PLAYING)
 			self.update_output_file()
 
 			if self.cb_cg_track is not None:
 				self.cb_cg_track(self, self.ud_cg_track)
 
 		elif state == playback.STATE_STOPPED:
-			self.pipeline.set_state(gst.STATE_NULL)
+			self.pipeline.set_state(Gst.State.NULL)
 			self.organization = "unknown"
-			self.bitrate      = "unknown"
+			self.bitrate      = 0
 			self.genre        = "unknown"
-			self.title        = "untitled"
+			self.title        = "Untitled"
 			self.duration     = None
 			self.state = playback.STATE_STOPPED
 
@@ -573,19 +604,20 @@ class playback:
 		if self.recorder.is_plugged:
 			return False
 
-		try:
-			self.pipeline.set_state(gst.STATE_PAUSED)
+                try:
+                        print "plug"
+			self.pipeline.set_state(Gst.State.PAUSED)
 			self.pipeline.add(self.recorder)
 
 			filesink = self.recorder.get_by_name("output")
 			filesink.set_property("location", filename)
 
 			tee = self.pipeline.get_by_name("tee")
-			teepad = tee.get_pad("src1")
+			teepad = tee.get_static_pad("src_1")
 
-			rpad = self.recorder.get_pad("sink")
+			rpad = self.recorder.get_static_pad("sink")
 			teepad.link(rpad)
-			self.pipeline.set_state(gst.STATE_PLAYING)
+			self.pipeline.set_state(Gst.State.PLAYING)
 
 			self.recorder.is_plugged = True
 			return True
@@ -602,18 +634,19 @@ class playback:
 			return False
 
 		try:
-			self.pipeline.set_state(gst.STATE_PAUSED)
+                        print "unplug"
+			self.pipeline.set_state(Gst.State.PAUSED)
 
 			tee = self.pipeline.get_by_name("tee")
-			teepad = tee.get_pad("src1")
+			teepad = tee.get_static_pad("src_1")
 
-			rpad = self.recorder.get_pad("sink")
+			rpad = self.recorder.get_static_pad("sink")
 			teepad.unlink(rpad)
 
 			self.pipeline.remove(self.recorder)
-			self.recorder.set_state(gst.STATE_NULL)
+			self.recorder.set_state(Gst.State.NULL)
 
-			self.pipeline.set_state(gst.STATE_PLAYING)
+			self.pipeline.set_state(Gst.State.PLAYING)
 			self.recorder.is_plugged = False
 			return True
 		except:
@@ -651,8 +684,7 @@ class playback:
 	def get_time(self):
 
 		try:
-			time_format = gst.Format(gst.FORMAT_TIME)
-			duration    = int(self.pipeline.query_position(time_format, None)[0])
+			duration    = int(self.pipeline.query_position(Gst.Format.TIME)[1])
 			duration   /= 1E9 # duration in seconds
 			return duration
 		except:
@@ -705,10 +737,9 @@ class playback:
 	# Set output format
 	#
 	def set_format(self, fmt):
-
 		try:
-			self.rplugins.index(fmt)
-			self.recorder = self.create_rec_bin(fmt)		
+		    self.rplugins.index(fmt)
+		    self.recorder = self.create_rec_bin(fmt)		
 		except:
 			print "ERROR: The specifed format is not supported."
 			self.recorder = None

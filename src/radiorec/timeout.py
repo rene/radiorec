@@ -19,7 +19,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import gobject
+import gi
+from gi.repository import GLib
 from threading import RLock
 
 ##
@@ -46,13 +47,13 @@ class Timeout:
 	def start(self):
 		self.lock.acquire(True)
 		if self.source_id == None:
-			self.source_id = gobject.timeout_add(self.timer * 1000, self.func, self.arg)
+			self.source_id = GLib.timeout_add(self.timer * 1000, self.func, self.arg)
 		self.lock.release()
 
 	def stop(self):
 		self.lock.acquire(True)
 		if self.source_id is not None:
-			gobject.source_remove(self.source_id)
+			GLib.source_remove(self.source_id)
 		self.source_id = None
 		self.lock.release()
 
