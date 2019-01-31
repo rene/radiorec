@@ -42,7 +42,7 @@ class MainWin:
 	#
 	def __init__(self):
 
-		self.version = "0.1 beta"
+		self.version = "1.0"
 
 		## User HOME dir
 		try:
