@@ -27,7 +27,7 @@ $ ./radiorec
 
 ## Acknowledges
 
-To Tango Icon Library team, because I use their icons were use to create Radiorec icon.
+To Tango Icon Library team, because their icons were used to create Radiorec icon.
 
 ## Bug report
 
