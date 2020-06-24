@@ -26,6 +26,7 @@ import os
 from threading import RLock
 from threading import Thread
 Gst.init(None)
+import sys,traceback
 
 ##
 # Playblack class
@@ -80,6 +81,7 @@ class playback:
 		self.genre        = "unknown"
 		self.title        = "untitled"
 		self.duration     = None
+                self.rec_plugged  = False
 
 
 		## Gstreamer
@@ -87,7 +89,7 @@ class playback:
 		self.lock1 = RLock()
 
 		# Create the pipeline
-		self.pipeline = Gst.Pipeline("playback")
+		self.pipeline = Gst.Pipeline() #Gst.Pipeline("playback")
 
 		# uridecodebin
 		self.uridec = Gst.ElementFactory.make("uridecodebin", "uridecoder")
@@ -96,7 +98,7 @@ class playback:
 
 
 		# Create the player Bin
-		self.player = Gst.Bin("player")
+		self.player = Gst.Bin()
 		
 		queue   = Gst.ElementFactory.make("queue", "queue")
 		convert = Gst.ElementFactory.make("audioconvert", "converter")
@@ -134,7 +136,9 @@ class playback:
 		teepad_1 = tee.get_request_pad("src_1")
 
 		# Add to pipeline
-		self.pipeline.add(tee, self.player)
+		#self.pipeline.add(tee, self.player)
+                self.pipeline.add(tee)
+                self.pipeline.add(self.player)
 
 		# Link tee with player and recorder
 		pad_p = self.player.get_static_pad("sink")
@@ -155,14 +159,18 @@ class playback:
 	def create_rec_bin(self, fmt):
 
 		if fmt == playback.FORMAT_OGG:
-			recbin  = Gst.Bin("recorder")
+			recbin  = Gst.Bin()
 			queue   = Gst.ElementFactory.make("queue", "queue")
 			convert = Gst.ElementFactory.make("audioconvert", "converter")
 			encoder = Gst.ElementFactory.make("vorbisenc", "encoder")
 			muxer   = Gst.ElementFactory.make("oggmux", "muxer")
 			output  = Gst.ElementFactory.make("filesink", "output")
 			
-			recbin.add(queue, convert, encoder, muxer, output)
+			recbin.add(queue)
+                        recbin.add(convert)
+                        recbin.add(encoder)
+                        recbin.add(muxer)
+                        recbin.add(output)
 			queue.link(convert)
                         convert.link(encoder)
                         encoder.link(muxer)
@@ -171,16 +179,19 @@ class playback:
 			pad = queue.get_static_pad("sink")
 			recbin.add_pad(Gst.GhostPad.new("sink", pad))
 
-			recbin.is_plugged = False
+			self.rec_plugged = False
 
 		elif fmt == playback.FORMAT_MP3:
-			recbin = Gst.Bin("recorder")
+			recbin = Gst.Bin()
 			queue   = Gst.ElementFactory.make("queue", "queue")
 			convert = Gst.ElementFactory.make("audioconvert", "converter")
 			encoder = Gst.ElementFactory.make("lame", "muxer")
 			output  = Gst.ElementFactory.make("filesink", "output")
 			
-			recbin.add(queue, convert, encoder, output)
+			recbin.add(queue)
+                        recbin.add(convert)
+                        recbin.add(encoder)
+                        recbin.add(output)
                         queue.link(convert)
                         convert.link(encoder)
                         encoder.link(muxer)
@@ -189,7 +200,7 @@ class playback:
 			pad = queue.get_static_pad("sink")
 			recbin.add_pad(Gst.GhostPad.new("sink", pad))
 
-			recbin.is_plugged = False
+			self.rec_plugged = False
 		else:
 			recbin = None
 
@@ -427,7 +438,7 @@ class playback:
 				print 'ERROR: could not create ' + path + '. Check permissions.'
 	    		pass
 
-			if not self.recorder.is_plugged:
+			if not self.rec_plugged:
 				if self.recopt == playback.REC_ON_NEXT and \
 						self.rec_trigger == False:
 					self.rec_trigger = True
@@ -555,6 +566,8 @@ class playback:
 			self.title        = "Untitled"
 			self.duration     = None
 			self.state = playback.STATE_STOPPED
+                        if self.rec_plugged:
+                            self.recorder_unplug()
 
 		if self.cb_cg_state is not None:
 			self.cb_cg_state(self, self.ud_cg_state)
@@ -590,6 +603,7 @@ class playback:
 				self.recorder_state = state
 				self.recorder_unplug()
 				self.rec_trigger = False
+                                self.rec_plugged = False
 			else:
 				return False
 		else:
@@ -601,7 +615,7 @@ class playback:
 	#
 	def recorder_plug(self, filename):
 
-		if self.recorder.is_plugged:
+		if self.rec_plugged:
 			return False
 
                 try:
@@ -619,10 +633,11 @@ class playback:
 			teepad.link(rpad)
 			self.pipeline.set_state(Gst.State.PLAYING)
 
-			self.recorder.is_plugged = True
+			self.rec_plugged = True
 			return True
 		except:
 			print "playback ERROR: Could not plug recorder to pipeline!"
+                        self.rec_plugged = False
 			return False
 
 	##
@@ -630,7 +645,7 @@ class playback:
 	#
 	def recorder_unplug(self):
 
-		if not self.recorder.is_plugged:
+		if not self.rec_plugged:
 			return False
 
 		try:
@@ -647,7 +662,7 @@ class playback:
 			self.recorder.set_state(Gst.State.NULL)
 
 			self.pipeline.set_state(Gst.State.PLAYING)
-			self.recorder.is_plugged = False
+			self.rec_plugged = False
 			return True
 		except:
 			print "playback ERROR: Could not unplug recorder from pipeline!"
@@ -741,8 +756,10 @@ class playback:
 		    self.rplugins.index(fmt)
 		    self.recorder = self.create_rec_bin(fmt)		
 		except:
+                        traceback.print_exc(file=sys.stdout)
 			print "ERROR: The specifed format is not supported."
-			self.recorder = None
+			self.recorder    = None
+                        self.rec_plugged = False
 			return False
 
 		if fmt == playback.FORMAT_OGG:

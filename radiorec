@@ -3,9 +3,9 @@
 ##
 # Just do some sanity check before start Radiorec
 #
-cd src
+cd `dirname $0`/src
 
-PYTHON=`which python`
+PYTHON=`which python2`
 
 if [ -z "$PYTHON" ]; then
 	echo
